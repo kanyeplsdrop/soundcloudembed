@@ -115,8 +115,8 @@
 
     <script>
         // --- Configuration ---
-        // UPDATED: Replaced placeholder with the user's GitHub raw file link
-        const GITHUB_SOUND_CDN = 'https://github.com/kanyeplsdrop/soundcloudartwork/raw/refs/heads/main/miss_moons_on_PH.mp3'; 
+        // CORRECTED LINK: Using the new, working raw file URL from your latest message.
+        const GITHUB_SOUND_CDN = 'https://github.com/kanyeplsdrop/soundcloudembed/raw/refs/heads/main/miss_moons_on_PH.mp3'; 
 
         // --- DOM Elements ---
         const body = document.getElementById('app-body');
@@ -135,7 +135,8 @@
         // Stores the raw HTML embed code for copying
         let currentEmbedHtml = '';
 
-        // Tone.js Player for the CDN sound effect
+        // Tone.js objects
+        let githubBuffer;
         let githubPlayer;
 
 
@@ -195,7 +196,13 @@
             cleanAndApply(embedButton, theme.button + ' consistent-btn transform active:scale-95 disabled:opacity-50');
             // Reapply consistent-btn to theme buttons
             document.querySelectorAll('.theme-btn').forEach(btn => {
-                btn.className = btn.className.split(' ').filter(c => !allClasses.has(c)).join(' ') + ' consistent-btn ' + theme.button.replace('text-white', 'text-gray-900'); // Keep specific text color for black/orange
+                // Ensure text color logic for black/orange theme
+                const btnClasses = btn.className.split(' ').filter(c => !allClasses.has(c)).join(' ');
+                if (btn.textContent.includes('Orange')) {
+                    btn.className = btnClasses + ' consistent-btn ' + theme.button.replace('text-white', 'text-gray-900');
+                } else {
+                    btn.className = btnClasses + ' consistent-btn ' + theme.button;
+                }
             });
             // Reapply consistent-btn to dev info button
             const devInfoBtn = document.querySelector('[onclick="openDevInfoModal()"]');
@@ -221,24 +228,21 @@
         // --- Utility Functions ---
 
         /**
-         * Handles the GitHub link click by playing a sound and then navigating.
+         * Handles the GitHub link click: plays sound, opens new tab.
+         * Note: Added new tab opening directly here as requested.
          */
         function handleGitHubClick(event) {
-            event.preventDefault(); // Stop navigation immediately
-
             // 1. Play the sound effect
-            if (githubPlayer) {
+            if (githubPlayer && githubPlayer.buffer) {
                 // Ensure audio context is started (important for mobile/browser security)
                 if (Tone.context.state !== 'running') {
                     Tone.start();
                 }
-                githubPlayer.start();
+                githubPlayer.start(0); // Play from the start of the buffer
             }
             
-            // 2. Navigate after a short delay to let the sound start
-            setTimeout(() => {
-                window.open(event.currentTarget.href, '_blank');
-            }, 150); // Adjust delay if sound is longer
+            // 2. Open the GitHub page in a new tab immediately
+            window.open(event.currentTarget.href, '_blank');
         }
 
         /**
@@ -367,8 +371,16 @@
         document.addEventListener('DOMContentLoaded', () => {
             applyTheme('black-orange');
 
-            // Initialize Tone.js Player for the CDN sound
-            githubPlayer = new Tone.Player(GITHUB_SOUND_CDN).toDestination();
+            // FIX: Use Tone.Buffer to reliably load audio from GitHub raw file.
+            githubBuffer = new Tone.Buffer(GITHUB_SOUND_CDN, () => {
+                // Once the buffer is loaded, initialize the Player with the buffer
+                githubPlayer = new Tone.Player(githubBuffer).toDestination();
+                // Since the audio is 12 seconds long, ensure it doesn't loop
+                githubPlayer.loop = false; 
+                console.log("GitHub audio buffer loaded successfully.");
+            }, (error) => {
+                console.error("Failed to load GitHub audio:", error);
+            });
 
             linkInput.addEventListener('input', () => {
                 embedButton.disabled = linkInput.value.trim().length === 0;
