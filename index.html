@@ -3,174 +3,377 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SoundCloud Art Link Finder</title>
+    <title>SoundCloud Embedder</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f2f2f2;
-            color: #333;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
+        /* Custom scrollbar for better aesthetics */
+        ::-webkit-scrollbar {
+            width: 8px;
         }
-        .container {
-            background-color: #fff;
-            padding: 30px;
-            border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-            max-width: 600px;
-            width: 100%;
+        ::-webkit-scrollbar-thumb {
+            background-color: #f97316; /* Orange-500 */
+            border-radius: 4px;
         }
-        h1 {
-            color: #ff5500;
-            text-align: center;
-            margin-bottom: 20px;
+        ::-webkit-scrollbar-track {
+            background-color: transparent;
         }
-        input[type="text"] {
-            width: calc(100% - 22px);
-            padding: 10px;
-            margin-bottom: 15px;
-            border: 1px solid #ccc;
-            border-radius: 6px;
-            font-size: 16px;
+        /* Style for the embed frame to ensure it fills the container and is centered */
+        #embed-container > iframe {
+            max-width: 100%;
+            height: 100%;
+            margin: 0 auto;
         }
-        button {
-            width: 100%;
-            padding: 12px;
-            background-color: #ff5500;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            font-size: 18px;
-            cursor: pointer;
-            transition: background-color 0.2s;
+
+        /* Specific styles for consistency with Embed Track button */
+        .consistent-btn {
+            padding-top: 0.75rem; /* py-3 */
+            padding-bottom: 0.75rem; /* py-3 */
+            padding-left: 1.5rem; /* px-6 */
+            padding-right: 1.5rem; /* px-6 */
+            font-weight: 700; /* font-bold */
+            border-radius: 0.5rem; /* rounded-lg */
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); /* shadow-md */
+            transition: all 0.3s ease; /* transition-all duration-300 */
+            transform: scale(1); /* Ensure no default scaling issues */
         }
-        button:hover {
-            background-color: #e34e00;
-        }
-        #result-area {
-            margin-top: 30px;
-            text-align: center;
-        }
-        .link-result {
-            margin-top: 15px;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            background-color: #e6e6e6;
-            word-break: break-all;
-            display: none;
-        }
-        .download-button {
-            margin-top: 15px;
-            padding: 10px 20px;
-            background-color: #4CAF50;
-            color: white;
-            text-decoration: none;
-            border-radius: 6px;
-            font-size: 16px;
-            display: inline-block;
-        }
-        .error {
-            color: red;
-            font-weight: bold;
+        .consistent-btn:active {
+            transform: scale(0.95); /* active:scale-95 */
         }
     </style>
 </head>
-<body>
-    <div class="container">
-        <h1>SoundCloud Art Link Finder</h1>
-        <p>Paste the full SoundCloud Track, Album, or Playlist URL below.</p>
-        
-        <input type="text" id="soundcloud-url" placeholder="e.g., https://soundcloud.com/user/track-name">
-        <button onclick="getArtwork()">Get High-Res Art</button>
+<body id="app-body" class="transition-colors duration-500 min-h-screen p-4 sm:p-8 bg-gray-900 text-white font-inter">
+    <div class="max-w-4xl mx-auto">
+        <header class="mb-8">
+            <h1 class="text-4xl font-bold text-orange-400 mb-2 transition-colors duration-500">Track Embedder</h1>
+            <p class="text-gray-400">Insert any public SoundCloud track link below to generate an embed player.</p>
+        </header>
 
-        <div id="result-area">
-            <p id="message"></p>
-            <div id="image-url-display" class="link-result"></div>
-            <a id="open-download-link" class="download-button" href="#" target="_blank" style="display: none;">Open Image in New Tab (to Download)</a>
+        <div class="flex flex-col gap-4 mb-8 sm:flex-row sm:justify-between sm:items-center">
+            <div class="flex flex-wrap gap-3 justify-start sm:justify-start">
+                <button onclick="applyTheme('black-orange')" class="theme-btn consistent-btn bg-orange-500 hover:bg-orange-600 text-gray-900 flex-shrink-0">
+                    Black / Orange
+                </button>
+                <button onclick="applyTheme('black-white')" class="theme-btn consistent-btn bg-gray-800 hover:bg-gray-700 text-white flex-shrink-0">
+                    Black / White
+                </button>
+                <button onclick="applyTheme('white-grey')" class="theme-btn consistent-btn bg-gray-200 hover:bg-gray-300 text-gray-800 flex-shrink-0">
+                    White / Light Grey
+                </button>
+            </div>
+            
+            <button onclick="openDevInfoModal()" class="consistent-btn bg-gray-700 hover:bg-gray-600 text-white flex-shrink-0 mt-4 sm:mt-0">
+                Developer Info
+            </button>
+        </div>
+
+        <div class="mb-8 p-6 bg-gray-800 rounded-xl shadow-lg transition-colors duration-500">
+            <label for="soundcloud-link" class="block text-sm font-medium mb-2 text-gray-300">SoundCloud Track URL</label>
+            <div class="flex flex-col sm:flex-row gap-4">
+                <input type="url" id="soundcloud-link" placeholder="e.g., https://soundcloud.com/user/track-title" class="flex-grow p-3 rounded-lg border border-gray-600 focus:ring-orange-500 focus:border-orange-500 bg-gray-700 text-white" required>
+                <button id="embed-button" onclick="embedTrack()" class="bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-6 rounded-lg shadow-md transition-all duration-300 transform active:scale-95 disabled:opacity-50" disabled>
+                    Embed Track
+                </button>
+            </div>
+            <p id="error-message" class="text-red-400 mt-2 hidden"></p>
+        </div>
+
+        <div class="p-6 bg-gray-800 rounded-xl shadow-lg h-96 flex flex-col justify-center transition-colors duration-500">
+            <div id="embed-container" class="w-full h-full flex items-center justify-center text-center text-gray-400">
+                Paste a link and click "Embed Track" to see the player here.
+            </div>
+            <div id="loading-indicator" class="hidden flex flex-col items-center">
+                <svg class="animate-spin -ml-1 mr-3 h-8 w-8 text-orange-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span class="mt-3 text-orange-400">Fetching embed code...</span>
+            </div>
+            <button id="copy-button" onclick="copyEmbedCode()" class="hidden mt-4 mx-auto w-full sm:w-auto bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-all duration-300 transform active:scale-95">
+                Copy Embed Code
+            </button>
+        </div>
+    </div>
+
+    <div id="dev-info-modal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 hidden p-4 transition-opacity duration-300">
+        <div id="modal-content" class="p-8 rounded-xl shadow-2xl w-full max-w-sm transition-colors duration-500">
+            <h2 class="text-2xl font-bold mb-4 transition-colors duration-500">Developer Information</h2>
+            <p class="mb-6 text-gray-400 transition-colors duration-500">Connect with the developer on GitHub:</p>
+            
+            <a href="https://github.com/kanyeplsdrop" target="_blank" onclick="handleGitHubClick(event)" class="github-button flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-lg shadow-md transition-all duration-300 transform active:scale-95 mb-4 w-full">
+                <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path fill-rule="evenodd" d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.805 8.207 11.387.6.11.82-.26.82-.577 0-.285-.01-1.04-.01-2.043-3.33 1.012-4.037-1.603-4.037-1.603-.544-1.385-1.325-1.755-1.325-1.755-1.082-.738.083-.724.083-.724 1.2 1.014 1.837 1.033 1.837 1.033 1.065.18 1.631-.225 1.837-.384.108-.3.421-.384.811-.472-3.177-.358-6.502-1.589-6.502-7.062 0-1.56.56-2.835 1.474-3.834-.148-.36-.639-1.81.139-3.766 0 0 1.205-.385 3.945 1.474 1.144-.316 2.365-.474 3.593-.474 1.228 0 2.45.158 3.594.474 2.739-1.859 3.943-1.474 3.943-1.474.778 1.956.287 3.406.14 3.766.915.998 1.473 2.274 1.473 3.834 0 5.484-3.329 6.7-6.512 7.051.458.396.868.995.868 2.006 0 1.452-.011 2.801-.011 3.18 0 .319.222.693.829.577C20.565 21.803 24 17.3 24 12c0-6.627-5.373-12-12-12z" clip-rule="evenodd"/>
+                </svg>
+                My GitHub Profile
+            </a>
+
+            <button onclick="closeDevInfoModal()" class="w-full mt-4 bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition-all duration-300">
+                Close
+            </button>
         </div>
     </div>
 
     <script>
-        // Note: Replace with your own client ID for a production app.
-        const CLIENT_ID = '2t9loNQH90kzJcsFCODj4IYzgimhE0L5'; 
+        // --- Configuration ---
+        // UPDATED: Replaced placeholder with the user's GitHub raw file link
+        const GITHUB_SOUND_CDN = 'https://github.com/kanyeplsdrop/soundcloudartwork/raw/refs/heads/main/miss_moons_on_PH.mp3'; 
 
-        async function getArtwork() {
-            const url = document.getElementById('soundcloud-url').value;
-            const messageElement = document.getElementById('message');
-            const urlDisplay = document.getElementById('image-url-display');
-            const downloadLink = document.getElementById('open-download-link');
+        // --- DOM Elements ---
+        const body = document.getElementById('app-body');
+        const header = document.querySelector('h1');
+        const inputContainer = document.querySelector('.p-6.bg-gray-800');
+        const embedBox = document.querySelector('#embed-container').parentNode;
+        const linkInput = document.getElementById('soundcloud-link');
+        const embedButton = document.getElementById('embed-button');
+        const embedContainer = document.getElementById('embed-container');
+        const loadingIndicator = document.getElementById('loading-indicator');
+        const errorMessage = document.getElementById('error-message');
+        const copyButton = document.getElementById('copy-button');
+        const devInfoModal = document.getElementById('dev-info-modal');
+        const modalContent = document.getElementById('modal-content');
+        
+        // Stores the raw HTML embed code for copying
+        let currentEmbedHtml = '';
 
-            // Reset elements
-            messageElement.textContent = 'Fetching data...';
-            urlDisplay.textContent = '';
-            urlDisplay.style.display = 'none';
-            downloadLink.style.display = 'none';
-            messageElement.classList.remove('error');
+        // Tone.js Player for the CDN sound effect
+        let githubPlayer;
 
-            if (!url) {
-                messageElement.textContent = 'Please enter a valid SoundCloud URL.';
-                messageElement.classList.add('error');
+
+        const themes = {
+            'black-orange': {
+                body: 'bg-gray-900 text-white',
+                highlight: 'text-orange-400',
+                boxes: 'bg-gray-800',
+                input: 'bg-gray-700 border-gray-600 text-white',
+                button: 'bg-orange-500 hover:bg-orange-600 text-white',
+                modalBg: 'bg-gray-900',
+                modalHighlight: 'text-orange-400'
+            },
+            'black-white': {
+                body: 'bg-gray-900 text-gray-100',
+                highlight: 'text-white',
+                boxes: 'bg-gray-800',
+                input: 'bg-gray-700 border-gray-600 text-white',
+                button: 'bg-white hover:bg-gray-100 text-gray-900',
+                modalBg: 'bg-gray-800',
+                modalHighlight: 'text-white'
+            },
+            'white-grey': {
+                body: 'bg-gray-100 text-gray-800',
+                highlight: 'text-gray-800',
+                boxes: 'bg-white',
+                input: 'bg-gray-200 border-gray-300 text-gray-800',
+                button: 'bg-gray-700 hover:bg-gray-800 text-white',
+                modalBg: 'bg-white',
+                modalHighlight: 'text-gray-800'
+            }
+        };
+
+        /**
+         * Applies the selected color theme to the main elements and modal.
+         * @param {string} themeName - The name of the theme ('black-orange', 'black-white', 'white-grey').
+         */
+        function applyTheme(themeName) {
+            const theme = themes[themeName];
+            
+            // Remove all theme classes before adding new ones
+            const allClasses = new Set(Object.values(themes).flatMap(t => [t.body, t.highlight, t.boxes, t.input, t.button, t.modalBg, t.modalHighlight].join(' ').split(' ')));
+            
+            // Utility function to clean and apply classes
+            const cleanAndApply = (el, classes) => {
+                if (!el) return;
+                el.className = el.className.split(' ').filter(c => !allClasses.has(c) || c.startsWith('transition') || c.startsWith('min-h-screen') || c.startsWith('p-') || c.startsWith('max-w')).join(' ') + ' ' + classes;
+            };
+
+            // Apply global classes
+            cleanAndApply(body, theme.body);
+            cleanAndApply(header, theme.highlight);
+            cleanAndApply(inputContainer, theme.boxes);
+            cleanAndApply(embedBox, theme.boxes + ' rounded-xl shadow-lg h-96 flex flex-col justify-center transition-colors duration-500');
+            cleanAndApply(linkInput, theme.input);
+            // Apply the new consistent-btn class along with theme-specific button classes
+            cleanAndApply(embedButton, theme.button + ' consistent-btn transform active:scale-95 disabled:opacity-50');
+            // Reapply consistent-btn to theme buttons
+            document.querySelectorAll('.theme-btn').forEach(btn => {
+                btn.className = btn.className.split(' ').filter(c => !allClasses.has(c)).join(' ') + ' consistent-btn ' + theme.button.replace('text-white', 'text-gray-900'); // Keep specific text color for black/orange
+            });
+            // Reapply consistent-btn to dev info button
+            const devInfoBtn = document.querySelector('[onclick="openDevInfoModal()"]');
+            if (devInfoBtn) {
+                cleanAndApply(devInfoBtn, theme.button + ' consistent-btn flex-shrink-0 mt-4 sm:mt-0');
+            }
+            
+            // Apply modal classes
+            cleanAndApply(modalContent, theme.modalBg);
+            const modalTitle = modalContent.querySelector('h2');
+            cleanAndApply(modalTitle, theme.modalHighlight);
+
+
+            // Update the scrollbar style (simplified regex replacement)
+            const styleElement = document.querySelector('style');
+            if (styleElement) {
+                // Simplified update for scrollbar thumb color
+                const thumbColor = themeName === 'black-orange' ? '#f97316' : themeName === 'black-white' ? '#f3f4f6' : '#4b5563';
+                styleElement.innerHTML = styleElement.innerHTML.replace(/background-color: #[a-fA-F0-9]{6};/, `background-color: ${thumbColor};`);
+            }
+        }
+
+        // --- Utility Functions ---
+
+        /**
+         * Handles the GitHub link click by playing a sound and then navigating.
+         */
+        function handleGitHubClick(event) {
+            event.preventDefault(); // Stop navigation immediately
+
+            // 1. Play the sound effect
+            if (githubPlayer) {
+                // Ensure audio context is started (important for mobile/browser security)
+                if (Tone.context.state !== 'running') {
+                    Tone.start();
+                }
+                githubPlayer.start();
+            }
+            
+            // 2. Navigate after a short delay to let the sound start
+            setTimeout(() => {
+                window.open(event.currentTarget.href, '_blank');
+            }, 150); // Adjust delay if sound is longer
+        }
+
+        /**
+         * Copies the generated iframe code to the clipboard.
+         */
+        function copyEmbedCode() {
+            if (!currentEmbedHtml) {
+                errorMessage.textContent = 'No embed code to copy.';
+                errorMessage.classList.remove('hidden');
                 return;
             }
 
+            errorMessage.classList.add('hidden');
+
+            const tempInput = document.createElement('textarea');
+            tempInput.value = currentEmbedHtml;
+            tempInput.style.position = 'absolute';
+            tempInput.style.left = '-9999px';
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            
+            let success = false;
             try {
-                // 1. Resolve the URL to get the track/playlist metadata
-                const resolveApi = `https://api-v2.soundcloud.com/resolve?url=${encodeURIComponent(url)}&client_id=${CLIENT_ID}`;
-                
-                const resolveResponse = await fetch(resolveApi);
-                let resolveData = await resolveResponse.json();
+                success = document.execCommand('copy');
+            } catch (err) {
+                console.error('Copy failed:', err);
+            }
 
-                // Handle common 302 redirect issues by fetching the redirected location
-                if (resolveData.status === '302 - Found' && resolveData.location) {
-                    const locationResponse = await fetch(resolveData.location);
-                    resolveData = await locationResponse.json();
-                }
+            document.body.removeChild(tempInput);
 
-                // 2. Extract and sanitize the artwork URL
-                let imageUrl = resolveData.artwork_url;
-
-                if (!imageUrl) {
-                    messageElement.textContent = 'Error: No artwork found for this item (e.g., profile pages, or tracks without uploaded art).';
-                    messageElement.classList.add('error');
-                    return;
-                }
-
-                // 3. THE FIX: Replace the size suffix with '-original' to get the highest resolution.
-                // This ensures we get the full quality link hosted on i*.sndcdn.com
-                // We use a regex replacement to catch various thumbnail sizes.
-                imageUrl = imageUrl.replace(/-t\d{2,4}x\d{2,4}|-large/g, '-original');
-                
-                // Final check to ensure it starts with the correct CDN host (like i1.sndcdn.com)
-                if (!imageUrl.startsWith('https://i')) {
-                     // This step shouldn't be necessary if the API works, but acts as a safeguard.
-                     messageElement.textContent = 'Error: The retrieved URL does not appear to be a SoundCloud CDN link.';
-                     messageElement.classList.add('error');
-                     return;
-                }
-
-
-                // 4. Update the display and link
-                messageElement.textContent = 'Success! High-resolution link generated.';
-                
-                urlDisplay.textContent = imageUrl;
-                urlDisplay.style.display = 'block';
-
-                downloadLink.href = imageUrl;
-                downloadLink.style.display = 'inline-block';
-                
-                // 5. Open the link in a new tab immediately (as requested by the user)
-                window.open(imageUrl, '_blank');
-
-
-            } catch (error) {
-                console.error('API Error:', error);
-                messageElement.textContent = 'An unknown error occurred. Check the URL and try again.';
-                messageElement.classList.add('error');
+            if (success) {
+                copyButton.textContent = 'Copied!';
+                copyButton.classList.remove('bg-green-500', 'hover:bg-green-600');
+                copyButton.classList.add('bg-blue-500', 'hover:bg-blue-600');
+                setTimeout(() => {
+                    copyButton.textContent = 'Copy Embed Code';
+                    copyButton.classList.remove('bg-blue-500', 'hover:bg-blue-600');
+                    copyButton.classList.add('bg-green-500', 'hover:bg-green-600');
+                }, 2000);
+            } else {
+                errorMessage.textContent = 'Copy failed. Browser access denied.';
+                errorMessage.classList.remove('hidden');
             }
         }
+
+        /**
+         * Opens the developer info modal.
+         */
+        function openDevInfoModal() {
+            devInfoModal.classList.remove('hidden');
+        }
+
+        /**
+         * Closes the developer info modal.
+         */
+        function closeDevInfoModal() {
+            devInfoModal.classList.add('hidden');
+        }
+
+        // --- API & Main Logic (Unchanged) ---
+
+        async function fetchWithBackoff(url, retries = 3) {
+            for (let i = 0; i < retries; i++) {
+                try {
+                    const response = await fetch(url);
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return await response.json();
+                } catch (error) {
+                    if (i === retries - 1) throw error;
+                    // Exponential backoff: 1s, 2s, 4s delay
+                    const delay = Math.pow(2, i) * 1000;
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                }
+            }
+        }
+
+        /**
+         * Fetches the embed code for the SoundCloud link using the oEmbed API.
+         */
+        async function embedTrack() {
+            const trackUrl = linkInput.value.trim();
+            errorMessage.classList.add('hidden');
+            embedContainer.innerHTML = '';
+            copyButton.classList.add('hidden');
+            
+            if (!trackUrl.includes('soundcloud.com')) {
+                errorMessage.textContent = 'Please enter a valid SoundCloud URL.';
+                errorMessage.classList.remove('hidden');
+                return;
+            }
+
+            // Show loading indicator
+            embedContainer.classList.add('hidden');
+            loadingIndicator.classList.remove('hidden');
+            embedButton.disabled = true;
+            currentEmbedHtml = '';
+
+            try {
+                const oembedUrl = `https://soundcloud.com/oembed?url=${encodeURIComponent(trackUrl)}&format=json&maxheight=300`;
+                
+                const data = await fetchWithBackoff(oembedUrl);
+
+                if (data.html) {
+                    currentEmbedHtml = data.html;
+                    embedContainer.innerHTML = currentEmbedHtml;
+                    copyButton.classList.remove('hidden');
+                } else {
+                    throw new Error('Could not retrieve embed code for this link.');
+                }
+            } catch (error) {
+                console.error("Embedding Error:", error);
+                errorMessage.textContent = 'Error embedding track. Check the URL and ensure it is a public SoundCloud link.';
+                embedContainer.innerHTML = 'Player failed to load.';
+                errorMessage.classList.remove('hidden');
+            } finally {
+                // Hide loading indicator and re-enable button
+                loadingIndicator.classList.add('hidden');
+                embedContainer.classList.remove('hidden');
+                embedButton.disabled = false;
+            }
+        }
+
+        // Initialize with default theme and sound player
+        document.addEventListener('DOMContentLoaded', () => {
+            applyTheme('black-orange');
+
+            // Initialize Tone.js Player for the CDN sound
+            githubPlayer = new Tone.Player(GITHUB_SOUND_CDN).toDestination();
+
+            linkInput.addEventListener('input', () => {
+                embedButton.disabled = linkInput.value.trim().length === 0;
+            });
+        });
     </script>
 </body>
 </html>
